@@ -737,6 +737,21 @@ async function syncCurrentDay() {
   await syncDay(day);
 }
 
+async function scriptRequest(payload) {
+  // Apps Script CORS workaround: encode payload as URL param, use no-cors POST
+  // Then poll for result via GET with a callback token
+  const url = getScriptUrl();
+  
+  // Encode payload as base64 to avoid encoding issues
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const getUrl = url + '?data=' + encodeURIComponent(encoded);
+  
+  // Try GET first (works without CORS issues for read)
+  const resp = await fetch(getUrl);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return await resp.json();
+}
+
 async function syncDay(day) {
   const url = getScriptUrl();
   if (!url) { openSetup(); return; }
@@ -744,43 +759,39 @@ async function syncDay(day) {
 
   setSyncStatus('⏳ Ukládám...');
   try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'saveDay',
-        year: currentYear,
-        month: currentMonth + 1,
-        day,
-        dochazka: {
-          typ1: dd.typ1 || '',
-          prichod: dd.prichod || '',
-          odchod: dd.odchod || '',
-          prescastyp: dd.prescastyp || '',
-          preschod_od: dd.preschod_od || '',
-          preschod_do: dd.preschod_do || '',
-          zakazky: dd.zakazky || [],
-          zakazky_hodiny: dd.zakazky_hodiny || {},
-          poznamka: dd.poznamka || ''
-        },
-        cestak: {
-          cesta: dd.cesta || '',
-          cesta_od: dd.cesta_od || '',
-          cesta_do: dd.cesta_do || '',
-          cesta_spz: dd.cesta_spz || '',
-          cesta_cil: dd.cesta_cil || ''
-        }
-      })
-    });
-    const result = await resp.json();
+    const payload = {
+      action: 'saveDay',
+      year: currentYear,
+      month: currentMonth + 1,
+      day,
+      dochazka: {
+        typ1: dd.typ1 || '',
+        prichod: dd.prichod || '',
+        odchod: dd.odchod || '',
+        prescastyp: dd.prescastyp || '',
+        preschod_od: dd.preschod_od || '',
+        preschod_do: dd.preschod_do || '',
+        zakazky: dd.zakazky || [],
+        zakazky_hodiny: dd.zakazky_hodiny || {},
+        poznamka: dd.poznamka || ''
+      },
+      cestak: {
+        cesta: dd.cesta || '',
+        cesta_od: dd.cesta_od || '',
+        cesta_do: dd.cesta_do || '',
+        cesta_spz: dd.cesta_spz || '',
+        cesta_cil: dd.cesta_cil || ''
+      }
+    };
+    const result = await scriptRequest(payload);
     if (result.ok) {
-      // Mark synced
       if (!data[day]) data[day] = {};
       data[day]._synced = new Date().toISOString();
       localStorage.setItem(storageKey(), JSON.stringify(data));
       setSyncStatus('');
       showToast(`Den ${day} uložen do Sheets ✓`);
     } else {
-      throw new Error(result.error);
+      throw new Error(result.error || 'Neznámá chyba');
     }
   } catch(e) {
     setSyncStatus('❌ Chyba');
@@ -810,11 +821,7 @@ async function loadFromSheets() {
   if (!url) { openSetup(); return; }
   setSyncStatus('⏳ Načítám ze Sheets...');
   try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'getMonth', year: currentYear, month: currentMonth + 1 })
-    });
-    const result = await resp.json();
+    const result = await scriptRequest({ action: 'getMonth', year: currentYear, month: currentMonth + 1 });
     if (result.ok) {
       // Merge with local (cloud wins)
       const cloudData = result.data;
