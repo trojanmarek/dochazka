@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1117">
+<title>Docházka – Trojan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222636;
+    --border: #2e3347;
+    --accent: #4f8ef7;
+    --accent2: #f7a24f;
+    --green: #4fcc8e;
+    --red: #f76f6f;
+    --text: #e8eaf2;
+    --muted: #7b80a0;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100dvh;
+    padding-bottom: 80px;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  .month-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .month-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .month-btn:active { background: var(--border); }
+  .month-label {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 18px;
+    flex: 1;
+    text-align: center;
+  }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    text-align: center;
+    padding: 8px 4px;
+    background: var(--surface2);
+    border-radius: 8px;
+  }
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-lbl {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* DAY LIST */
+  .days-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+
+  .day-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .day-card.has-data { border-color: var(--accent); }
+  .day-card.is-holiday { border-color: var(--red); opacity: 0.7; }
+  .day-card.is-weekend { opacity: 0.55; }
+
+  .day-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+  .day-num {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--muted);
+    min-width: 36px;
+    line-height: 1;
+  }
+  .day-card.has-data .day-num { color: var(--accent); }
+  .day-name {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .day-summary {
+    flex: 1;
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .day-summary.filled { color: var(--text); }
+  .day-chevron {
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .day-card.open .day-chevron { transform: rotate(180deg); }
+
+  .day-form {
+    display: none;
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border);
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 0;
+    padding-top: 14px;
+  }
+  .day-card.open .day-form { display: flex; }
+
+  /* FORM ELEMENTS */
+  label {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  input[type="time"],
+  input[type="text"],
+  select,
+  textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+  textarea { resize: none; height: 60px; font-size: 13px; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  .zakázky-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .badge.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .zakázka-hours-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .zakázka-hours-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  .zakázka-hours-row .zak-label {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+  .zakázka-hours-row .zak-kod {
+    font-size: 10px;
+    color: var(--muted);
+    display: block;
+  }
+  .zakázka-hours-row input[type="number"] {
+    width: 70px;
+    text-align: right;
+    padding: 6px 8px;
+    font-size: 14px;
+  }
+  .hours-unit { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  .section-title {
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+
+  .overtime-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 8px 16px 20px;
+    gap: 10px;
+    z-index: 200;
+  }
+  .nav-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .nav-btn:active { transform: scale(0.97); }
+  .nav-btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* TODAY HIGHLIGHT */
+  .today-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  select option { background: var(--surface2); }
+
+  .holiday-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--red);
+    background: rgba(247,111,111,0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-left: auto;
+  }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 10px;
+    cursor: pointer;
+    align-self: flex-end;
+  }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--green);
+    color: #0f1117;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <span class="logo">SUPTel // Trojan</span>
+    <span style="font-family:var(--mono);font-size:11px;color:var(--muted)" id="saveIndicator"></span>
+  </div>
+  <div class="month-selector">
+    <button class="month-btn" onclick="changeMonth(-1)">◀</button>
+    <span class="month-label" id="monthLabel">—</span>
+    <button class="month-btn" onclick="changeMonth(1)">▶</button>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-val" id="statPrace">0</div><div class="stat-lbl">Pracovní dny</div></div>
+  <div class="stat"><div class="stat-val" id="statPresčas">0</div><div class="stat-lbl">Přesčas (h)</div></div>
+  <div class="stat"><div class="stat-val" id="statCesty">0</div><div class="stat-lbl">Cesty</div></div>
+</div>
+
+<div class="days-list" id="daysList"></div>
+
+<div class="bottom-nav">
+  <button class="nav-btn" onclick="exportExcel()">📥 Export XLSX</button>
+  <button class="nav-btn primary" onclick="saveAll()">💾 Uložit</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const ZAKÁZKY = [
+  {kód: '33000', název: 'Režie'},
+  {kód: '22000', název: 'VDFN P2P'},
+  {kód: '22001', název: 'VDFN P2P Penny'},
+  {kód: '33432', název: 'SUPTel MW VF'},
+  {kód: '43510', název: 'exUPC/Infotel'},
+  {kód: '43531', název: 'VF WTTx'},
+  {kód: '43540', název: 'T-Mobile DSL'},
+  {kód: '43550', název: 'ČRA inst.'},
+  {kód: '43560', název: 'ČRA servis'},
+  {kód: '43580', název: 'Ostatní tech.'},
+  {kód: '43581', název: 'Cetin online'},
+  {kód: '43582', název: 'Cetin MW'},
+];
+
+const TYP1 = ['Práce','Dovolená','Lékař','Nemoc / OČR','Náhradní volno','Neplacené volno','Neomluveno','§'];
+const TYP2 = ['Přesčas PD','Přesčas ND','Přesčas NOC','Přesčas PRÁCE'];
+const TYP_CESTA = ['Cesta','Jiné'];
+
+const HOLIDAYS_2025 = ['2025-01-01','2025-04-18','2025-04-21','2025-05-01','2025-05-08','2025-10-28','2025-11-17','2025-12-24','2025-12-25','2025-12-26'];
+const HOLIDAYS_2026 = ['2026-01-01','2026-04-03','2026-04-06','2026-05-01','2026-05-08','2026-10-28','2026-11-17','2026-12-24','2026-12-25','2026-12-26'];
+
+const MESICE = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+const DNY = ['Ne','Po','Út','St','Čt','Pá','So'];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let currentYear, currentMonth;
+let data = {}; // data[YYYY-MM][DD] = { typ1, prichod, odchod, prescastyp, preschod_od, preschod_do, zakazky[], poznamka, cesta, cesta_od, cesta_do, cesta_spz, cesta_cil }
+
+function storageKey() { return `dochazka_${currentYear}_${String(currentMonth+1).padStart(2,'0')}`; }
+
+function loadData() {
+  try { data = JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch(e) { data = {}; }
+}
+function saveData() {
+  localStorage.setItem(storageKey(), JSON.stringify(data));
+  showToast('Uloženo ✓');
+  updateSaveIndicator();
+}
+
+function getHolidays() {
+  return currentYear === 2025 ? HOLIDAYS_2025 : HOLIDAYS_2026;
+}
+
+function isHoliday(dateStr) { return getHolidays().includes(dateStr); }
+
+// ── RENDER ─────────────────────────────────────────────────────────────────────
+function renderMonth() {
+  loadData();
+  const now = new Date();
+  document.getElementById('monthLabel').textContent = `${MESICE[currentMonth]} ${currentYear}`;
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const list = document.getElementById('daysList');
+  list.innerHTML = '';
+
+  let pracDni = 0, presHod = 0, cesty = 0;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow = new Date(currentYear, currentMonth, d).getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const hol = isHoliday(dateStr);
+    const dayData = data[d] || {};
+    const isToday = (now.getFullYear()===currentYear && now.getMonth()===currentMonth && now.getDate()===d);
+    const hasData = !!dayData.typ1;
+
+    if(hasData && dayData.typ1==='Práce') pracDni++;
+    if(hasData && dayData.prescastyp && dayData.preschod_od && dayData.preschod_do) {
+      const [h1,m1] = (dayData.preschod_od||'0:0').split(':').map(Number);
+      const [h2,m2] = (dayData.preschod_do||'0:0').split(':').map(Number);
+      presHod += Math.max(0, (h2*60+m2 - h1*60-m1)/60);
+    }
+    if(hasData && dayData.cesta==='Cesta') cesty++;
+
+    // Summary text
+    let summary = '';
+    if(hasData) {
+      summary = dayData.typ1;
+      if(dayData.prichod) summary += ` ${dayData.prichod}–${dayData.odchod||'?'}`;
+      if(dayData.poznamka) summary += ` · ${dayData.poznamka}`;
+    }
+
+    const card = document.createElement('div');
+    card.className = `day-card${hasData?' has-data':''}${isWeekend?' is-weekend':''}${hol?' is-holiday':''}`;
+    card.dataset.day = d;
+
+    card.innerHTML = `
+      <div class="day-header" onclick="toggleDay(${d})">
+        <div>
+          <div class="day-num">${d}${isToday?'<span class="today-dot"></span>':''}</div>
+          <div class="day-name">${DNY[dow]}</div>
+        </div>
+        <div class="day-summary ${hasData?'filled':''}">${summary || (hol?'Svátek':isWeekend?'Víkend':'—')}</div>
+        ${hol?'<span class="holiday-tag">SVÁTEK</span>':''}
+        <span class="day-chevron">▼</span>
+      </div>
+      <div class="day-form" id="form-${d}">
+        ${buildForm(d, dayData)}
+      </div>
+    `;
+    list.appendChild(card);
+  }
+
+  document.getElementById('statPrace').textContent = pracDni;
+  document.getElementById('statPresčas').textContent = presHod.toFixed(1);
+  document.getElementById('statCesty').textContent = cesty;
+  updateSaveIndicator();
+}
+
+function buildForm(d, dd) {
+  const zak = (dd.zakazky || []);
+  const zakBadges = ZAKÁZKY.map(z => 
+    `<span class="badge ${zak.includes(z.kód)?'active':''}" onclick="toggleZak(${d},'${z.kód}',this)">${z.kód}<br><span style="font-size:9px;opacity:.7">${z.název}</span></span>`
+  ).join('');
+
+  return `
+    <div>
+      <label>Typ docházky</label>
+      <select onchange="setField(${d},'typ1',this.value)">
+        <option value="">— nevyplněno —</option>
+        ${TYP1.map(t=>`<option value="${t}" ${dd.typ1===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div>
+      <label>Pracovní doba</label>
+      <div class="row-2">
+        <div><label>Příchod</label><input type="time" value="${dd.prichod||'07:30'}" onchange="setField(${d},'prichod',this.value)"></div>
+        <div><label>Odchod</label><input type="time" value="${dd.odchod||'16:00'}" onchange="setField(${d},'odchod',this.value)"></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">Přesčas</div>
+      <div class="overtime-block">
+        <div>
+          <label>Typ přesčasu</label>
+          <select onchange="setField(${d},'prescastyp',this.value)">
+            <option value="">— žádný —</option>
+            ${TYP2.map(t=>`<option value="${t}" ${dd.prescastyp===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="row-2">
+          <div><label>Od</label><input type="time" value="${dd.preschod_od||''}" onchange="setField(${d},'preschod_od',this.value)"></div>
+          <div><label>Do</label><input type="time" value="${dd.preschod_do||''}" onchange="setField(${d},'preschod_do',this.value)"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">Zakázky</div>
+      <div class="badge-row">${zakBadges}</div>
+      <div class="zakázka-hours-list" id="zak-hours-${d}">
+        ${buildZakHours(d, dd)}
+      </div>
+    </div>
+    <div>
+      <div class="section-title">Cestovní náhrady</div>
+      <div class="row-2" style="margin-bottom:8px">
+        <div><label>Typ</label>
+          <select onchange="setField(${d},'cesta',this.value)">
+            <option value="">— žádná —</option>
+            ${TYP_CESTA.map(t=>`<option value="${t}" ${dd.cesta===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>SPZ</label><input type="text" value="${dd.cesta_spz||''}" placeholder="7P40374" onchange="setField(${d},'cesta_spz',this.value)"></div>
+      </div>
+      <div class="row-2" style="margin-bottom:8px">
+        <div><label>Odjezd</label><input type="time" value="${dd.cesta_od||''}" onchange="setField(${d},'cesta_od',this.value)"></div>
+        <div><label>Příjezd</label><input type="time" value="${dd.cesta_do||''}" onchange="setField(${d},'cesta_do',this.value)"></div>
+      </div>
+      <div>
+        <label>Cíl cesty</label>
+        <input type="text" value="${dd.cesta_cil||''}" placeholder="Praha, Brno..." onchange="setField(${d},'cesta_cil',this.value)">
+      </div>
+    </div>
+    <div>
+      <label>Poznámka / popis práce</label>
+      <textarea onchange="setField(${d},'poznamka',this.value)" placeholder="Co jsem dnes dělal...">${dd.poznamka||''}</textarea>
+    </div>
+    <button class="clear-btn" onclick="clearDay(${d})">✕ Smazat den</button>
+  `;
+}
+
+function toggleDay(d) {
+  const card = document.querySelector(`[data-day="${d}"]`);
+  if (!card) return;
+  const isOpen = card.classList.contains('open');
+  document.querySelectorAll('.day-card.open').forEach(c => c.classList.remove('open'));
+  if (!isOpen) {
+    card.classList.add('open');
+    card.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+}
+
+function setField(d, field, value) {
+  if (!data[d]) data[d] = {};
+  data[d][field] = value;
+  // auto-save to localStorage silently
+  localStorage.setItem(storageKey(), JSON.stringify(data));
+  updateCardHeader(d);
+}
+
+function updateCardHeader(d) {
+  const dd = data[d] || {};
+  const card = document.querySelector(`[data-day="${d}"]`);
+  if (!card) return;
+  const hasData = !!dd.typ1;
+  card.classList.toggle('has-data', hasData);
+  const sum = card.querySelector('.day-summary');
+  if (sum) {
+    let summary = '';
+    if (hasData) {
+      summary = dd.typ1;
+      if(dd.prichod) summary += ` ${dd.prichod}–${dd.odchod||'?'}`;
+      if(dd.poznamka) summary += ` · ${dd.poznamka}`;
+    }
+    sum.textContent = summary || '—';
+    sum.className = `day-summary ${hasData?'filled':''}`;
+    const numEl = card.querySelector('.day-num');
+    if (numEl) numEl.style.color = hasData ? 'var(--accent)' : '';
+  }
+}
+
+function buildZakHours(d, dd) {
+  const zakazky = dd.zakazky || [];
+  const hours = dd.zakazky_hodiny || {};
+  if (zakazky.length === 0) return '';
+  return zakazky.map(kód => {
+    const z = ZAKÁZKY.find(x => x.kód === kód) || {kód, název: ''};
+    const val = hours[kód] !== undefined ? hours[kód] : '';
+    return `
+      <div class="zakázka-hours-row">
+        <div class="zak-label">
+          <span class="zak-kod">${z.kód}</span>
+          ${z.název}
+        </div>
+        <input type="number" min="0" max="24" step="0.25" value="${val}" placeholder="0"
+          oninput="setZakHours(${d},'${kód}',this.value)">
+        <span class="hours-unit">h</span>
+      </div>`;
+  }).join('');
+}
+
+function setZakHours(d, kód, value) {
+  if (!data[d]) data[d] = {};
+  if (!data[d].zakazky_hodiny) data[d].zakazky_hodiny = {};
+  data[d].zakazky_hodiny[kód] = parseFloat(value) || 0;
+  localStorage.setItem(storageKey(), JSON.stringify(data));
+}
+
+function toggleZak(d, kód, el) {
+  if (!data[d]) data[d] = {};
+  if (!data[d].zakazky) data[d].zakazky = [];
+  if (!data[d].zakazky_hodiny) data[d].zakazky_hodiny = {};
+  const idx = data[d].zakazky.indexOf(kód);
+  if (idx >= 0) {
+    data[d].zakazky.splice(idx, 1);
+    delete data[d].zakazky_hodiny[kód];
+    el.classList.remove('active');
+  } else {
+    data[d].zakazky.push(kód);
+    el.classList.add('active');
+  }
+  localStorage.setItem(storageKey(), JSON.stringify(data));
+  // Re-render hours list
+  const container = document.getElementById(`zak-hours-${d}`);
+  if (container) container.innerHTML = buildZakHours(d, data[d]);
+}
+
+function clearDay(d) {
+  if (!confirm(`Smazat data pro den ${d}?`)) return;
+  delete data[d];
+  localStorage.setItem(storageKey(), JSON.stringify(data));
+  renderMonth();
+}
+
+function saveAll() {
+  saveData();
+}
+
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderMonth();
+}
+
+function updateSaveIndicator() {
+  const el = document.getElementById('saveIndicator');
+  const count = Object.keys(data).length;
+  el.textContent = count > 0 ? `${count} dní` : '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── EXCEL EXPORT ───────────────────────────────────────────────────────────────
+function exportExcel() {
+  if (typeof XLSX === 'undefined') { alert('Knihovna XLSX se nenačetla. Zkontrolujte připojení.'); return; }
+  const wb = XLSX.utils.book_new();
+
+  // ─ Sheet: Dochazka ─────────────────────────────────────
+  const dRows = [];
+  dRows.push(['SUPTel - DISK s.r.o.', '', '', '', '', '', '', '', 'VÝKAZ DOCHÁZKY']);
+  dRows.push(['Rok:', currentYear, '', 'Technik:', 'Marek Trojan']);
+  dRows.push(['Měsíc:', currentMonth+1, '', 'Středisko:', 3300]);
+  dRows.push([]);
+  dRows.push(['ID','Den','Den týdne','Typ docházky','Příchod','Odchod','Čas (h)','Přesčas typ','Přesčas od','Přesčas do','Přesčas (h)','Zakázka1','Zakázka2','Zakázka3','Trvání1 (h)','Trvání2 (h)','Trvání3 (h)','Poznámka']);
+
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = data[d] || {};
+    const date = new Date(currentYear, currentMonth, d);
+    const dow = DNY[date.getDay()];
+    const zakazky = dd.zakazky || [];
+
+    let hours = '';
+    if (dd.prichod && dd.odchod) {
+      const [h1,m1] = dd.prichod.split(':').map(Number);
+      const [h2,m2] = dd.odchod.split(':').map(Number);
+      hours = ((h2*60+m2 - h1*60-m1)/60).toFixed(2);
+    }
+    let presHours = '';
+    if (dd.prescastyp && dd.preschod_od && dd.preschod_do) {
+      const [h1,m1] = dd.preschod_od.split(':').map(Number);
+      const [h2,m2] = dd.preschod_do.split(':').map(Number);
+      presHours = ((h2*60+m2 - h1*60-m1)/60).toFixed(2);
+    }
+
+    // Trvání per zakázka z ručně zadaných hodnot
+    const zakHoursMap = dd.zakazky_hodiny || {};
+
+    dRows.push([
+      d, `${d}. ${MESICE[currentMonth].slice(0,3)}`, dow,
+      dd.typ1 || '',
+      dd.prichod || '', dd.odchod || '', hours,
+      dd.prescastyp || '', dd.preschod_od || '', dd.preschod_do || '', presHours,
+      zakazky[0] || '', zakazky[1] || '', zakazky[2] || '',
+      zakazky[0] ? (zakHoursMap[zakazky[0]] || '') : '',
+      zakazky[1] ? (zakHoursMap[zakazky[1]] || '') : '',
+      zakazky[2] ? (zakHoursMap[zakazky[2]] || '') : '',
+      dd.poznamka || ''
+    ]);
+  }
+
+  const wsDoch = XLSX.utils.aoa_to_sheet(dRows);
+  wsDoch['!cols'] = [{wch:4},{wch:12},{wch:6},{wch:16},{wch:7},{wch:7},{wch:7},{wch:14},{wch:10},{wch:10},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:8},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, wsDoch, 'Dochazka');
+
+  // ─ Sheet: Cestak ──────────────────────────────────────
+  const cRows = [];
+  cRows.push(['SUPTel - DISK s.r.o.', '', '', '', '', '', 'Cestovní náhrady']);
+  cRows.push(['Rok:', currentYear, '', 'Technik:', 'Marek Trojan']);
+  cRows.push(['Měsíc:', currentMonth+1]);
+  cRows.push([]);
+  cRows.push(['ID','Den','Den týdne','Typ','Odjezd','Příjezd','Trvání (h)','Stravné (Kč)','SPZ','Cíl pracovní cesty']);
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dd = data[d] || {};
+    if (!dd.cesta) continue;
+    const date = new Date(currentYear, currentMonth, d);
+    const dow = DNY[date.getDay()];
+    let hours = '';
+    let stravne = '';
+    if (dd.cesta_od && dd.cesta_do) {
+      const [h1,m1] = dd.cesta_od.split(':').map(Number);
+      const [h2,m2] = dd.cesta_do.split(':').map(Number);
+      const h = (h2*60+m2 - h1*60-m1)/60;
+      hours = h.toFixed(2);
+      stravne = h > 18 ? 353 : h > 12 ? 225 : h > 5 ? 148 : '';
+    }
+    cRows.push([
+      d, `${d}. ${MESICE[currentMonth].slice(0,3)}`, dow,
+      dd.cesta || '',
+      dd.cesta_od || '', dd.cesta_do || '', hours, stravne,
+      dd.cesta_spz || '', dd.cesta_cil || ''
+    ]);
+  }
+
+  const wsCest = XLSX.utils.aoa_to_sheet(cRows);
+  wsCest['!cols'] = [{wch:4},{wch:12},{wch:6},{wch:8},{wch:8},{wch:8},{wch:8},{wch:10},{wch:10},{wch:35}];
+  XLSX.utils.book_append_sheet(wb, wsCest, 'Cestak');
+
+  // ─ Export ──────────────────────────────────────────────
+  const filename = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-Trojan.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast(`Staženo: ${filename}`);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+(function init() {
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth();
+  renderMonth();
+
+  // Auto-open today
+  const today = now.getDate();
+  const todayCard = document.querySelector(`[data-day="${today}"]`);
+  if (todayCard) {
+    setTimeout(() => {
+      todayCard.classList.add('open');
+      todayCard.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 300);
+  }
+})();
+</script>
+</body>
+</html>
