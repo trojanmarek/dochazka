@@ -570,6 +570,14 @@ function buildForm(d, dd) {
       </div>
     </div>
     <div>
+      <div class="section-title">Pohotovost</div>
+      <select onchange="setField(${d},'pohotovost',this.value)">
+        <option value="">— žádná —</option>
+        <option value="Pohotovost PD" ${dd.pohotovost==='Pohotovost PD'?'selected':''}>Pohotovost PD</option>
+        <option value="Pohotovost ND" ${dd.pohotovost==='Pohotovost ND'?'selected':''}>Pohotovost ND</option>
+      </select>
+    </div>
+    <div>
       <div class="section-title">Zakázky</div>
       <div class="badge-row">${zakBadges}</div>
       <div class="zakázka-hours-list" id="zak-hours-${d}">
@@ -774,6 +782,7 @@ async function syncDay(day) {
         prescastyp: dd.prescastyp || '',
         preschod_od: dd.preschod_od || '',
         preschod_do: dd.preschod_do || '',
+        pohotovost: dd.pohotovost || '',
         zakazky: dd.zakazky || [],
         zakazky_hodiny: dd.zakazky_hodiny || {},
         poznamka: dd.poznamka || ''
