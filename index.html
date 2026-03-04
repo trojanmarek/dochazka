@@ -743,7 +743,10 @@ async function scriptRequest(payload) {
   const url = getScriptUrl();
   
   // Encode payload as base64 to avoid encoding issues
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  // Kódování s podporou UTF-8 (háčky, čárky)
+  const jsonStr = JSON.stringify(payload);
+  const encoded = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g,
+    (_, p1) => String.fromCharCode('0x' + p1)));
   const getUrl = url + '?data=' + encodeURIComponent(encoded);
   
   // Try GET first (works without CORS issues for read)
