@@ -398,9 +398,24 @@
 
 <div class="days-list" id="daysList"></div>
 
+<!-- SETUP MODAL -->
+<div id="setupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:500;padding:24px;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:480px;width:100%">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:12px">NASTAVENÍ</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px">URL Google Apps Scriptu</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Po nasazení Apps Scriptu vložte sem vygenerovanou URL.</div>
+    <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..."
+      style="width:100%;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12px;padding:12px;outline:none;margin-bottom:16px;box-sizing:border-box">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="closeSetup()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--sans);font-size:13px;font-weight:600;padding:12px;cursor:pointer">Zrušit</button>
+      <button onclick="saveSetup()" style="background:var(--accent);border:none;border-radius:10px;color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;padding:12px;cursor:pointer">Uložit</button>
+    </div>
+  </div>
+</div>
+
 <div class="bottom-nav">
-  <button class="nav-btn" onclick="exportExcel()">📥 Export XLSX</button>
-  <button class="nav-btn primary" onclick="saveAll()">💾 Uložit</button>
+  <button class="nav-btn" onclick="syncCurrentDay()" id="syncBtn">☁️ Uložit do Sheets</button>
+  <button class="nav-btn" onclick="openSetup()">⚙️ Nastavení</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -686,11 +701,150 @@ function saveAll() {
   saveData();
 }
 
+// ── CLOUD SYNC ────────────────────────────────────────────────────────────────
+function getScriptUrl() {
+  return localStorage.getItem('scriptUrl') || '';
+}
+
+function openSetup() {
+  const modal = document.getElementById('setupModal');
+  modal.style.display = 'flex';
+  document.getElementById('scriptUrlInput').value = getScriptUrl();
+}
+
+function closeSetup() {
+  document.getElementById('setupModal').style.display = 'none';
+}
+
+function saveSetup() {
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if (!url) { alert('Vložte URL Apps Scriptu'); return; }
+  localStorage.setItem('scriptUrl', url);
+  closeSetup();
+  showToast('URL uložena ✓');
+  // Sync whole month after setup
+  syncAllDays();
+}
+
+async function syncCurrentDay() {
+  const url = getScriptUrl();
+  if (!url) { openSetup(); return; }
+
+  // Find open day
+  const openCard = document.querySelector('.day-card.open');
+  if (!openCard) { showToast('Otevřete nejprve den'); return; }
+  const day = parseInt(openCard.dataset.day);
+  await syncDay(day);
+}
+
+async function syncDay(day) {
+  const url = getScriptUrl();
+  if (!url) { openSetup(); return; }
+  const dd = data[day] || {};
+
+  setSyncStatus('⏳ Ukládám...');
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'saveDay',
+        year: currentYear,
+        month: currentMonth + 1,
+        day,
+        dochazka: {
+          typ1: dd.typ1 || '',
+          prichod: dd.prichod || '',
+          odchod: dd.odchod || '',
+          prescastyp: dd.prescastyp || '',
+          preschod_od: dd.preschod_od || '',
+          preschod_do: dd.preschod_do || '',
+          zakazky: dd.zakazky || [],
+          zakazky_hodiny: dd.zakazky_hodiny || {},
+          poznamka: dd.poznamka || ''
+        },
+        cestak: {
+          cesta: dd.cesta || '',
+          cesta_od: dd.cesta_od || '',
+          cesta_do: dd.cesta_do || '',
+          cesta_spz: dd.cesta_spz || '',
+          cesta_cil: dd.cesta_cil || ''
+        }
+      })
+    });
+    const result = await resp.json();
+    if (result.ok) {
+      // Mark synced
+      if (!data[day]) data[day] = {};
+      data[day]._synced = new Date().toISOString();
+      localStorage.setItem(storageKey(), JSON.stringify(data));
+      setSyncStatus('');
+      showToast(`Den ${day} uložen do Sheets ✓`);
+    } else {
+      throw new Error(result.error);
+    }
+  } catch(e) {
+    setSyncStatus('❌ Chyba');
+    showToast('Chyba: ' + e.message);
+    console.error(e);
+  }
+}
+
+async function syncAllDays() {
+  const url = getScriptUrl();
+  if (!url) return;
+  setSyncStatus('⏳ Syncuji měsíc...');
+  let count = 0;
+  for (const day of Object.keys(data)) {
+    if (data[day].typ1) {
+      await syncDay(parseInt(day));
+      count++;
+      await new Promise(r => setTimeout(r, 300)); // throttle
+    }
+  }
+  setSyncStatus('');
+  showToast(`Synchronizováno ${count} dní ✓`);
+}
+
+async function loadFromSheets() {
+  const url = getScriptUrl();
+  if (!url) { openSetup(); return; }
+  setSyncStatus('⏳ Načítám ze Sheets...');
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'getMonth', year: currentYear, month: currentMonth + 1 })
+    });
+    const result = await resp.json();
+    if (result.ok) {
+      // Merge with local (cloud wins)
+      const cloudData = result.data;
+      for (const day of Object.keys(cloudData)) {
+        data[day] = cloudData[day];
+      }
+      localStorage.setItem(storageKey(), JSON.stringify(data));
+      renderMonth();
+      setSyncStatus('');
+      showToast('Načteno ze Sheets ✓');
+    } else {
+      throw new Error(result.error);
+    }
+  } catch(e) {
+    setSyncStatus('');
+    showToast('Chyba načítání: ' + e.message);
+  }
+}
+
+function setSyncStatus(msg) {
+  document.getElementById('saveIndicator').textContent = msg;
+}
+
 function changeMonth(delta) {
   currentMonth += delta;
   if (currentMonth > 11) { currentMonth = 0; currentYear++; }
   if (currentMonth < 0) { currentMonth = 11; currentYear--; }
   renderMonth();
+  // Auto-load from sheets when switching months
+  if (getScriptUrl()) loadFromSheets();
 }
 
 function updateSaveIndicator() {
@@ -814,6 +968,11 @@ function exportExcel() {
       todayCard.classList.add('open');
       todayCard.scrollIntoView({behavior:'smooth', block:'center'});
     }, 300);
+  }
+
+  // Show setup hint if no URL configured
+  if (!localStorage.getItem('scriptUrl')) {
+    setTimeout(() => showToast('⚙️ Nastavte URL Apps Scriptu'), 1500);
   }
 })();
 </script>
